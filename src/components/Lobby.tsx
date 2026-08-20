@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Logo from './Logo'
 import type { RoomSnapshot } from '../lib/rooms'
+import AvatarIcon from './AvatarIcon'
 
 interface LobbyProps {
   room: RoomSnapshot
@@ -41,7 +42,7 @@ export default function Lobby({ room, uid, onStart, onLeave }: LobbyProps) {
             const p = room.players.find((pl) => pl.slot === slot)
             return (
               <div className={`lobby-seat${p ? ' filled' : ''}`} key={slot}>
-                <span className="seat-av">{p ? p.avatar : '➕'}</span>
+                <span className="seat-av">{p ? <AvatarIcon avatar={p.avatar} /> : '➕'}</span>
                 <span className="seat-name">
                   {p ? p.name : 'รอเพื่อน…'}
                   {p && p.uid === uid ? ' (คุณ)' : ''}

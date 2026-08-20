@@ -4,8 +4,9 @@ import Dial from './Dial'
 import ConceptCard from './ConceptCard'
 import { CARDS } from '../data/cards'
 import { randomTarget } from '../lib/scoring'
+import AvatarIcon from './AvatarIcon'
 
-const AVATARS = ['🦊', '🐸', '🐱', '🐰', '🐼', '🦁']
+const AVATARS = ['🦊', '🐸', '🐱', '🐰', '🐼', '🦁', 'Pinkbutterfly.png', 'Purplebutterfly.png']
 
 const HOW_STEPS = [
   { emoji: '🎡', text: 'คนใบ้หมุนวงล้อสุ่มตำแหน่ง แล้วพิมพ์คำใบ้ให้เพื่อน' },
@@ -219,7 +220,7 @@ function PlayerSetup({ label, name, onName, avatar, onAvatar }: PlayerSetupProps
         aria-expanded={open}
         aria-label={`เลือกอวตาร ${label} (ตอนนี้ ${avatar})`}
       >
-        <span className="badge-emoji">{avatar}</span>
+        <span className="badge-emoji"><AvatarIcon avatar={avatar} /></span>
         <span className="badge-caret" aria-hidden>
           ▾
         </span>
@@ -245,7 +246,7 @@ function PlayerSetup({ label, name, onName, avatar, onAvatar }: PlayerSetupProps
               }}
               aria-pressed={avatar === a}
             >
-              {a}
+              <AvatarIcon avatar={a} />
             </button>
           ))}
         </div>

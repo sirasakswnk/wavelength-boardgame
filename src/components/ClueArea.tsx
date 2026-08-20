@@ -1,3 +1,5 @@
+import AvatarIcon from './AvatarIcon'
+
 interface ClueAreaProps {
   /** input = คนใบ้กำลังพิมพ์คำใบ้ · show = แสดงคำใบ้ที่ส่งแล้ว/รออยู่ */
   mode: 'input' | 'show'
@@ -21,7 +23,7 @@ export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, on
         >
           <div className="clue-line">
             <span className="clue-av" aria-hidden>
-              {psychicAvatar}
+              <AvatarIcon avatar={psychicAvatar} />
             </span>
             <input
               value={draft}
@@ -43,7 +45,7 @@ export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, on
   return (
     <div className="cluerow">
       <span className="clue-av" aria-hidden>
-        {psychicAvatar}
+        <AvatarIcon avatar={psychicAvatar} />
       </span>
       <div className="bubble">
         <span className="lab">คำใบ้:</span>

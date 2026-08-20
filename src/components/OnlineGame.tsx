@@ -4,6 +4,7 @@ import Dial from './Dial'
 import ConceptCard from './ConceptCard'
 import PlayerCard from './PlayerCard'
 import ClueArea from './ClueArea'
+import AvatarIcon from './AvatarIcon'
 import type { ConfettiHandle } from './Confetti'
 import { CARDS } from '../data/cards'
 import { randomTarget, scoreCopy, type Score } from '../lib/scoring'
@@ -337,7 +338,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
         {!amPsychic && pub.phase === 'setup' && (
           <div className="psy-status">
             <span className="psy-status-av" aria-hidden>
-              {psychicPlayer?.avatar ?? '🔮'}
+              <AvatarIcon avatar={psychicPlayer?.avatar ?? '🔮'} />
             </span>
             <span className="psy-status-text">
               {psychicPlayer?.name ?? 'คนใบ้'} {psyStatusText}

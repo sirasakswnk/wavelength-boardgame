@@ -1,4 +1,5 @@
 import CountUp from './CountUp'
+import AvatarIcon from './AvatarIcon'
 
 interface PlayerCardProps {
   name: string
@@ -13,7 +14,7 @@ export default function PlayerCard({ name, avatar, role, score, active }: Player
   return (
     <div className={`pcard${active ? ' turn' : ''}`}>
       <span className="av" aria-hidden>
-        {avatar}
+        <AvatarIcon avatar={avatar} />
       </span>
       <span className="pinfo">
         <span className="nm">{name}</span>
