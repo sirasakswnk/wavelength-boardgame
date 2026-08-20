@@ -368,9 +368,11 @@ body {
   flex-direction: column;
   gap: 6px;
   align-items: center;
+  justify-content: center;
   text-align: center;
   box-shadow: 0 7px 0 rgba(9, 60, 66, 0.28);
   position: relative;
+  min-height: 110px;
   animation: cardFlip 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both;
 }
 
