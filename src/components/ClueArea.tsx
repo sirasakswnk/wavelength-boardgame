@@ -28,7 +28,7 @@ export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, on
             <input
               value={draft}
               onChange={(e) => onDraft(e.target.value)}
-              maxLength={40}
+              maxLength={100}
               placeholder="พิมพ์คำใบ้ของคุณเช่น “ผู้หญิงบอกว่าไม่ได้เป็นไร”"
               aria-label="ช่องพิมพ์คำใบ้"
               autoFocus
