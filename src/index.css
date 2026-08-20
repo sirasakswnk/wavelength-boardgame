@@ -1031,7 +1031,17 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  background: #fff;
+  border: 3.5px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 0 6px 0 rgba(9, 60, 66, 0.25);
+  padding: 4px;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+.setup-row:focus-within {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 var(--pink-deep);
+  border-color: var(--pink);
 }
 .setup-badge {
   flex: 0 0 auto;
@@ -1039,20 +1049,18 @@ body {
   align-items: center;
   gap: 3px;
   height: 42px;
-  padding: 0 8px 0 10px;
+  padding: 0 10px 0 14px;
   background: var(--panel-2);
-  border: 3px solid var(--ink);
-  border-radius: 12px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 4px 0 rgba(9, 60, 66, 0.15);
-  transition: transform 0.12s, box-shadow 0.12s;
+  transition: transform 0.1s, background 0.1s;
 }
 .setup-badge:hover {
-  transform: translateY(-1px);
+  background: var(--sun);
 }
 .setup-badge:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 rgba(9, 60, 66, 0.15);
+  transform: scale(0.95);
 }
 .badge-emoji {
   font-size: 22px;
@@ -1066,14 +1074,12 @@ body {
   flex: 1 1 auto;
   min-width: 0;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--ink);
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 12px;
-  padding: 9px 14px;
-  box-shadow: 0 4px 0 rgba(9, 60, 66, 0.15);
+  background: transparent;
+  border: none;
+  padding: 9px 16px 9px 12px;
   outline: none;
 }
 .setup-name::placeholder {
@@ -1082,8 +1088,7 @@ body {
   font-size: 13px;
 }
 .setup-name:focus-visible {
-  border-color: var(--pink);
-  box-shadow: 0 4px 0 var(--pink-deep);
+  /* No individual effect, relying on .setup-row:focus-within */
 }
 /* popover ตัวเลือกอวตาร (เด้งจาก badge) */
 .avatar-pop {
