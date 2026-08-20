@@ -325,6 +325,12 @@ body {
   gap: 10px;
 }
 
+@media (min-width: 768px) {
+  .dialrow {
+    flex-wrap: nowrap;
+  }
+}
+
 /* wrapper: จัดขนาด + เอียง + hover + perspective (ให้ inner พลิก 3D ได้) */
 .concept {
   flex: 0 1 138px;
