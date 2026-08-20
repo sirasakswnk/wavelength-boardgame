@@ -18,7 +18,7 @@ export const CARDS: Card[] = [
   { id: 'mild-spicy', left: 'เผ็ดน้อย', right: 'เผ็ดจัด', colorLeft: '#22C55E', colorRight: '#F4572E' },
   { id: 'snack-meal', left: 'ของกินเล่น', right: 'ของกินจริงจัง', colorLeft: '#FFAE2E', colorRight: '#8B5CF6' },
   { id: 'weak-strong-hero', left: 'ฮีโร่อ่อนแอ', right: 'ฮีโร่ทรงพลัง', colorLeft: '#64748B', colorRight: '#F4572E' },
-  { id: 'kids-adult-movie', left: 'หนังเด็ก', right: 'หนังผู้ใหญ่', colorLeft: '#00C48C', colorRight: '#6D28D9' },
+  { id: 'safe-danger', left: 'ปลอดภัย', right: 'อันตราย', colorLeft: '#00C48C', colorRight: '#6D28D9' },
   { id: 'useless-skill', left: 'ทักษะไร้ค่า', right: 'ทักษะมีค่า', colorLeft: '#94A3B8', colorRight: '#00C48C' },
   { id: 'unwanted-job', left: 'งานไม่มีใครอยากทำ', right: 'งานใครๆก็อยากทำ', colorLeft: '#78716C', colorRight: '#FFAE2E' },
   { id: 'tellable-secret', left: 'ความลับที่บอกได้', right: 'ความลับที่ห้ามบอก', colorLeft: '#3E8EF7', colorRight: '#DB2777' },
