@@ -1,0 +1,10 @@
+# ตั้งค่า Netlify (ใช้ตอน deploy แบบต่อ GitHub / auto-build)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA: ทุก path ให้เสิร์ฟ index.html (กัน 404 ตอนรีเฟรช)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

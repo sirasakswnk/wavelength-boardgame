@@ -1,0 +1,27 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# build output
+dist
+dist-ssr
+
+# tsc emit artifacts จาก vite.config.ts (Vite ใช้ .ts ตรงๆ ไม่ต้องใช้ไฟล์พวกนี้)
+vite.config.js
+vite.config.d.ts
+
+# local env / secrets (Firebase config ฯลฯ)
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo
