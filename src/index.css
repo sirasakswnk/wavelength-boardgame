@@ -1056,10 +1056,14 @@ body {
   padding: 4px;
   transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
 }
-.setup-row:focus-within {
+.setup-row:focus-within,
+.setup-row.focus-held {
+  box-shadow: 0 6px 0 var(--pink-deep);
+  border-color: var(--pink);
+}
+.setup-row:active {
   transform: translateY(3px);
   box-shadow: 0 3px 0 var(--pink-deep);
-  border-color: var(--pink);
 }
 .setup-badge {
   flex: 0 0 auto;

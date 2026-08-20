@@ -211,28 +211,30 @@ function PlayerSetup({ label, name, onName, avatar, onAvatar }: PlayerSetupProps
   }, [open])
 
   return (
-    <div className="setup-row" ref={rootRef}>
-      <button
-        type="button"
-        className="setup-badge"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-label={`เลือกอวตาร ${label} (ตอนนี้ ${avatar})`}
-      >
-        <span className="badge-emoji"><AvatarIcon avatar={avatar} /></span>
-        <span className="badge-caret" aria-hidden>
-          ▾
-        </span>
-      </button>
-      <input
-        className="setup-name"
-        value={name}
-        onChange={(e) => onName(e.target.value)}
-        maxLength={16}
-        placeholder="ชื่อเล่นของคุณ"
-        aria-label="ชื่อเล่นของคุณ"
-      />
+    <div className="setup-wrapper" ref={rootRef} style={{ position: 'relative', width: '100%' }}>
+      <div className={`setup-row ${open ? 'focus-held' : ''}`}>
+        <button
+          type="button"
+          className="setup-badge"
+          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label={`เลือกอวตาร ${label} (ตอนนี้ ${avatar})`}
+        >
+          <span className="badge-emoji"><AvatarIcon avatar={avatar} /></span>
+          <span className="badge-caret" aria-hidden>
+            ▾
+          </span>
+        </button>
+        <input
+          className="setup-name"
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+          maxLength={16}
+          placeholder="ชื่อเล่นของคุณ"
+          aria-label="ชื่อเล่นของคุณ"
+        />
+      </div>
       {open && (
         <div className="avatar-pop" role="group" aria-label="เลือกอวตาร">
           {AVATARS.map((a) => (
