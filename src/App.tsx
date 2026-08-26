@@ -27,12 +27,12 @@ export default function App() {
   const room = useRoom(code)
   const confettiRef = useRef<ConfettiHandle | null>(null)
 
-  async function handleCreate(name: string, avatar: string) {
+  async function handleCreate(name: string, avatar: string, rounds: number) {
     if (!uid) return
     setBusy(true)
     setActionError(null)
     try {
-      const c = await createRoom(uid, name, avatar)
+      const c = await createRoom(uid, name, avatar, rounds)
       setCode(c)
     } catch (e) {
       setActionError(errMsg(e))

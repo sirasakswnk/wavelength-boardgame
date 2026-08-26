@@ -10,8 +10,10 @@ import { CARDS } from '../data/cards'
 import { randomTarget, scoreCopy, type Score } from '../lib/scoring'
 import {
   advanceRound,
+  DEFAULT_ROUNDS,
   finalizeScore,
   getMyTarget,
+  restartGame,
   revealRound,
   saveTarget,
   setPsyStatus,
@@ -40,6 +42,9 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   const guesser = players.find((p) => p.uid !== pub.psychicUid) ?? null
   const psychicPlayer = players.find((p) => p.uid === pub.psychicUid) ?? null
   const card = CARDS.find((c) => c.id === pub.cardId) ?? CARDS[0]
+  const totalRounds = pub.totalRounds ?? DEFAULT_ROUNDS
+  const isLastRound = (pub.round ?? 0) >= totalRounds
+  const isHost = pub.hostUid === uid
 
   // ---- state ฝั่งเครื่อง ----
   const [psyStep, setPsyStep] = useState<PsyStep>('spin')
@@ -144,6 +149,14 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pub.phase, pub.roundScore, pub.round])
 
+  // ยิงคอนเฟตตีฉลองตอนจบเกม
+  useEffect(() => {
+    if (pub.phase === 'ended') {
+      confettiRef.current?.burst(window.innerWidth / 2, window.innerHeight * 0.34, { big: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pub.phase])
+
   useEffect(() => () => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
   }, [])
@@ -226,6 +239,10 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
     advanceRound(code, pub, players, false).catch(() => { })
   }
 
+  function playAgain() {
+    restartGame(code, pub, players).catch(() => { })
+  }
+
   // ---- derived สำหรับวาด ----
   const guesserTargetReady = pub.phase === 'revealed' && pub.targetShown != null
   const displayTarget = amPsychic ? myTarget ?? 0.5 : pub.targetShown ?? 0.5
@@ -281,6 +298,56 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   const burst =
     pub.phase === 'revealed' && pub.roundScore != null ? scoreCopy(pub.roundScore as Score) : null
 
+  // ---- หน้าจบเกม (ผลลัพธ์) ----
+  if (pub.phase === 'ended') {
+    const ranked = [...players].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    const tie = ranked.length >= 2 && (ranked[0].score ?? 0) === (ranked[1].score ?? 0)
+    const winner = tie ? null : ranked[0]
+    const iWon = winner?.uid === uid
+
+    return (
+      <>
+        <Logo />
+        <div className="results">
+          <div className="results-crown" aria-hidden>{tie ? '🤝' : '👑'}</div>
+          <div className="results-title">
+            {tie ? 'เสมอกัน!' : iWon ? 'คุณชนะ! 🎉' : `${winner?.name ?? ''} ชนะ!`}
+          </div>
+          <div className="results-sub">จบครบ {totalRounds} รอบแล้ว</div>
+
+          <div className="results-board">
+            {ranked.map((p, i) => (
+              <div
+                className={`results-row${!tie && i === 0 ? ' win' : ''}`}
+                key={p.uid}
+              >
+                <span className="results-rank">{!tie && i === 0 ? '👑' : `#${i + 1}`}</span>
+                <span className="results-av"><AvatarIcon avatar={p.avatar} /></span>
+                <span className="results-name">
+                  {p.name}{p.uid === uid ? ' (คุณ)' : ''}
+                </span>
+                <span className="results-score">{p.score ?? 0}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="controls">
+            {isHost ? (
+              <button type="button" className="btn primary" onClick={playAgain}>
+                🔄 เล่นอีกครั้ง
+              </button>
+            ) : (
+              <div className="lobby-wait">⏳ รอโฮสต์เริ่มเกมใหม่…</div>
+            )}
+            <button type="button" className="btn how-btn" onClick={onLeave}>
+              ← ออกจากห้อง
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <Logo />
@@ -298,7 +365,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
             />
           ))}
           <div className="roundchip" key={pub.round}>
-            รอบที่ <b>{pub.round}</b>
+            รอบที่ <b>{pub.round}</b> / {totalRounds}
           </div>
         </header>
 
@@ -365,7 +432,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
           )}
           {pub.phase === 'revealed' && (
             <button type="button" className="btn primary" onClick={nextRound}>
-              🎲 รอบต่อไป
+              {isLastRound ? '🏁 ดูผลลัพธ์' : '🎲 รอบต่อไป'}
             </button>
           )}
           <button type="button" className="btn how-btn" onClick={onLeave}>

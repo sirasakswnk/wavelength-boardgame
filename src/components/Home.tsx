@@ -4,6 +4,7 @@ import Dial from './Dial'
 import ConceptCard from './ConceptCard'
 import { CARDS } from '../data/cards'
 import { randomTarget } from '../lib/scoring'
+import { ROUND_OPTIONS, DEFAULT_ROUNDS } from '../lib/rooms'
 import AvatarIcon from './AvatarIcon'
 
 const AVATARS = ['🦊', '🐸', '🐱', '🐰', '🐼', '🦁', 'Pinkbutterfly.png', 'Purplebutterfly.png']
@@ -16,7 +17,7 @@ const HOW_STEPS = [
 ]
 
 interface HomeProps {
-  onCreate: (name: string, avatar: string) => void
+  onCreate: (name: string, avatar: string, rounds: number) => void
   onJoin: (code: string, name: string, avatar: string) => void
   busy: boolean
   error: string | null
@@ -30,6 +31,7 @@ export default function Home({ onCreate, onJoin, busy, error }: HomeProps) {
   const [showHow, setShowHow] = useState(false)
   const [joining, setJoining] = useState(false)
   const [codeInput, setCodeInput] = useState('')
+  const [rounds, setRounds] = useState<number>(DEFAULT_ROUNDS)
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -91,13 +93,32 @@ export default function Home({ onCreate, onJoin, busy, error }: HomeProps) {
 
       {error && <div className="home-error">⚠️ {error}</div>}
 
+      {/* จำนวนรอบ (เฉพาะตอนสร้างห้อง) */}
+      <div className="rounds-pick" role="group" aria-label="จำนวนรอบ">
+        <span className="rounds-label">🎯 จำนวนโจทย์</span>
+        <div className="rounds-opts">
+          {ROUND_OPTIONS.map((n) => (
+            <button
+              type="button"
+              key={n}
+              className={`rounds-btn${rounds === n ? ' on' : ''}`}
+              onClick={() => setRounds(n)}
+              aria-pressed={rounds === n}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <span className="rounds-note">แต่ละคนได้ทาย {rounds / 2} ครั้ง</span>
+      </div>
+
       {/* สร้าง / เข้าร่วมห้อง */}
       <div className="home-actions">
         <button
           type="button"
           className="btn primary home-start"
           disabled={busy || !nameValid}
-          onClick={() => onCreate(myName(), avatar)}
+          onClick={() => onCreate(myName(), avatar, rounds)}
         >
           🏠 สร้างห้อง
         </button>

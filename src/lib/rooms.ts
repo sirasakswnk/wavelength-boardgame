@@ -14,7 +14,11 @@ import { getFirebase } from './firebase'
 import { scoreFor } from './scoring'
 import { CARDS, randomCard } from '../data/cards'
 
-export type RoomPhase = 'lobby' | 'setup' | 'guessing' | 'revealed'
+export type RoomPhase = 'lobby' | 'setup' | 'guessing' | 'revealed' | 'ended'
+
+/** ตัวเลือกจำนวนรอบตอนสร้างห้อง (เลขคู่ = แต่ละคนได้ทายเท่ากัน) */
+export const ROUND_OPTIONS = [4, 6, 8, 10] as const
+export const DEFAULT_ROUNDS = 6
 
 /** สิ่งที่คนใบ้กำลังทำอยู่ระหว่างเฟส setup (ให้คนทายเห็นสถานะ) */
 export type PsyStatus = 'spinning' | 'peeking' | 'thinking'
@@ -30,6 +34,7 @@ export interface RoomPlayer {
 export interface RoomPublic {
   phase: RoomPhase
   round: number
+  totalRounds: number // จำนวนรอบทั้งหมดของเกม (ตั้งตอนสร้างห้อง)
   psychicUid: string | null
   cardId: string | null
   clue: string
@@ -60,10 +65,11 @@ const secretRef = (code: string) => ref(db(), `rooms/${code}/secret/targetPositi
 const playerRef = (code: string, uid: string) => ref(db(), `rooms/${code}/players/${uid}`)
 const presenceRef = (code: string, uid: string) => ref(db(), `rooms/${code}/presence/${uid}`)
 
-function makePublic(hostUid: string): RoomPublic {
+function makePublic(hostUid: string, totalRounds: number): RoomPublic {
   return {
     phase: 'lobby',
     round: 0,
+    totalRounds,
     psychicUid: null,
     cardId: null,
     clue: '',
@@ -77,7 +83,12 @@ function makePublic(hostUid: string): RoomPublic {
 }
 
 // ---- lobby ----
-export async function createRoom(uid: string, name: string, avatar: string): Promise<string> {
+export async function createRoom(
+  uid: string,
+  name: string,
+  avatar: string,
+  totalRounds: number = DEFAULT_ROUNDS,
+): Promise<string> {
   let code = genCode()
   for (let i = 0; i < 5; i++) {
     const snap = await get(ref(db(), `rooms/${code}/public`))
@@ -86,7 +97,7 @@ export async function createRoom(uid: string, name: string, avatar: string): Pro
   }
   // เขียนแยกเป็นราย path (public + players/uid) เพราะ rules ให้สิทธิ์ที่ระดับลูก ไม่ใช่ที่ rooms/$code
   await update(ref(db(), `rooms/${code}`), {
-    public: makePublic(uid),
+    public: makePublic(uid, totalRounds),
     [`players/${uid}`]: { uid, name, avatar, score: 0, slot: 0 },
   })
   return code
@@ -159,6 +170,12 @@ export async function advanceRound(
   players: RoomPlayer[],
   firstRound: boolean,
 ): Promise<void> {
+  // เล่นครบจำนวนรอบแล้ว → จบเกม (โชว์ผลลัพธ์) แทนการขึ้นรอบใหม่
+  const total = current.totalRounds ?? DEFAULT_ROUNDS
+  if (!firstRound && (current.round ?? 0) >= total) {
+    await update(pubRef(code), { phase: 'ended' })
+    return
+  }
   const prevCard = CARDS.find((c) => c.id === current.cardId)
   const card = randomCard(prevCard)
   let psychicUid: string
@@ -180,6 +197,18 @@ export async function advanceRound(
     targetShown: null,
     psyStatus: null,
   })
+}
+
+/** เล่นใหม่: ล้างคะแนนทุกคนเป็น 0 แล้วเริ่มรอบ 1 ใหม่ (โฮสต์กด) */
+export async function restartGame(
+  code: string,
+  current: RoomPublic,
+  players: RoomPlayer[],
+): Promise<void> {
+  await Promise.all(
+    players.map((p) => update(playerRef(code, p.uid), { score: 0 })),
+  )
+  await advanceRound(code, { ...current, round: 0, psychicUid: null }, players, true)
 }
 
 /** คนใบ้อัปเดตสถานะว่ากำลังทำอะไร (ให้คนทายเห็น) */

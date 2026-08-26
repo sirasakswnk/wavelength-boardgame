@@ -36,6 +36,7 @@ export default function Lobby({ room, uid, onStart, onLeave }: LobbyProps) {
           <span className="copy-hint">{copied ? '✓ คัดลอกแล้ว' : '📋 แตะเพื่อคัดลอก'}</span>
         </button>
         <p className="lobby-share">ส่งรหัสนี้ให้เพื่อนกรอกในหน้า “เข้าร่วมห้อง”</p>
+        <div className="lobby-rounds">🎯 เล่นทั้งหมด <b>{room.pub.totalRounds}</b> รอบ</div>
 
         <div className="lobby-players">
           {[0, 1].map((slot) => {
