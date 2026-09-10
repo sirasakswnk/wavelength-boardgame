@@ -8,16 +8,15 @@ import AvatarIcon from './AvatarIcon'
 import type { ConfettiHandle } from './Confetti'
 import { CARDS } from '../data/cards'
 import { randomTarget, scoreCopy, type Score } from '../lib/scoring'
+import { useAction } from '../hooks/useAction'
 import {
   advanceRound,
   DEFAULT_ROUNDS,
   finalizeScore,
   getMyTarget,
   restartGame,
-  revealRound,
   saveTarget,
   setPsyStatus,
-  setupPresence,
   submitClue,
   submitGuess,
   type RoomSnapshot,
@@ -29,6 +28,8 @@ interface OnlineGameProps {
   room: RoomSnapshot
   uid: string
   code: string
+  connected: boolean
+  leaving: boolean
   confettiRef: RefObject<ConfettiHandle | null>
   onLeave: () => void
 }
@@ -36,7 +37,7 @@ interface OnlineGameProps {
 const SPIN_DURATION = 1600
 const OPEN_DURATION = 1200
 
-export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: OnlineGameProps) {
+export default function OnlineGame({ room, uid, code, connected, leaving, confettiRef, onLeave }: OnlineGameProps) {
   const { pub, players } = room
   const amPsychic = pub.psychicUid === uid
   const guesser = players.find((p) => p.uid !== pub.psychicUid) ?? null
@@ -45,6 +46,11 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   const totalRounds = pub.totalRounds ?? DEFAULT_ROUNDS
   const isLastRound = (pub.round ?? 0) >= totalRounds
   const isHost = pub.hostUid === uid
+  const { busy, error, report, run, retry } = useAction()
+  const bothOnline = players.length === 2 && players.every(p => room.online[p.uid])
+  const paused = !connected || !bothOnline || leaving
+  const [targetLoading, setTargetLoading] = useState(amPsychic)
+  const [targetAttempt, setTargetAttempt] = useState(0)
 
   // ---- state ฝั่งเครื่อง ----
   const [psyStep, setPsyStep] = useState<PsyStep>('spin')
@@ -64,27 +70,24 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   const rafRef = useRef<number | null>(null)
   const guesserSpinRef = useRef<number | null>(null)
   const lastGuessWrite = useRef(0)
-  const finalizedRound = useRef(-1)
   const confettiRound = useRef(-1)
+  const needleTimer = useRef<ReturnType<typeof setTimeout>>()
+  const needleQueue = useRef<Promise<void>>(Promise.resolve())
+  const needleDirty = useRef(false)
+  const needleValue = useRef(localNeedle)
+  const mounted = useRef(true)
 
-  // ---- reset ทุกครั้งที่ขึ้นรอบใหม่ ----
+  // App keys this component by roundId, including rematches.
   useEffect(() => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
-    spinningRef.current = false
-    openingRef.current = false
-    setPsyStep('spin')
-    setMyTarget(null)
-    setSpinTick(0)
-    setSpinning(false)
-    setOpenProgress(0)
-    setOpening(false)
-    setClueDraft('')
-    setLocalNeedle(0.5)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pub.round])
-
-  // presence: ออนไลน์อยู่ในห้อง + ล้างเมื่อหลุด
-  useEffect(() => setupPresence(code, uid), [code, uid])
+    mounted.current = true
+    return () => { mounted.current = false; clearTimeout(needleTimer.current) }
+  }, [])
+  useEffect(() => {
+    if (!needleDirty.current || pub.phase === 'revealed') {
+      setLocalNeedle(pub.needle)
+      needleValue.current = pub.needle
+    }
+  }, [pub.needle, pub.phase])
 
   // คนทาย: วงล้อหมุนตามตอนคนใบ้กำลังหมุน
   useEffect(() => {
@@ -103,32 +106,28 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
     setGuesserSpin(0)
   }, [amPsychic, pub.psyStatus])
 
-  // คนใบ้: ถ้ารีเฟรชกลางรอบ (ยังทาย/เฉลย) ให้ดึงเป้าหมายจาก secret กลับมา
+  // Restore an immutable target in every phase, including setup after refresh.
   useEffect(() => {
-    if (amPsychic && myTarget == null && (pub.phase === 'guessing' || pub.phase === 'revealed')) {
-      getMyTarget(code).then((t) => {
-        if (t != null) setMyTarget(t)
-      })
-    }
+    if (!amPsychic) return
+    let alive = true
+    setTargetLoading(true)
+    getMyTarget(code, pub.roundId).then(t => {
+      if (!alive) return
+      setMyTarget(t)
+      if (t != null) setPsyStep(pub.psyStatus === 'thinking' ? 'clue' : 'peek')
+      setTargetLoading(false)
+    }).catch(e => { if (alive) report(e) })
+    return () => { alive = false }
+    // Status is restored once; live status changes must not interrupt local animations.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amPsychic, pub.phase])
+  }, [amPsychic, code, pub.roundId, targetAttempt, report])
 
-  // คนใบ้: พอเห็นเฟส revealed ให้คิดคะแนน (เพราะมีเป้าหมายจริง)
+  // Either member can finalize after the guess has been locked. Transaction + rules deduplicate.
   useEffect(() => {
-    if (
-      amPsychic &&
-      pub.phase === 'revealed' &&
-      pub.revealed &&
-      pub.targetShown == null &&
-      myTarget != null &&
-      guesser &&
-      finalizedRound.current !== pub.round
-    ) {
-      finalizedRound.current = pub.round
-      finalizeScore(code, myTarget, pub.needle, guesser).catch(() => { })
+    if (connected && pub.phase === 'revealed' && pub.roundScore == null) {
+      void run(() => finalizeScore(code, pub.roundId))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amPsychic, pub.phase, pub.revealed, pub.targetShown, myTarget, pub.round])
+  }, [connected, pub.phase, pub.roundScore, pub.roundId, code, run])
 
   // ทั้งคู่: ยิงคอนเฟตตี/สั่นจอ ตอนคะแนนออก
   useEffect(() => {
@@ -162,14 +161,20 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   }, [])
 
   // ---- actions คนใบ้ ----
-  function startSpin() {
+  async function startSpin() {
     if (spinningRef.current) return
     spinningRef.current = true
     setSpinning(true)
-    const t = randomTarget()
-    setMyTarget(t)
-    saveTarget(code, t).catch(() => { })
-    setPsyStatus(code, 'spinning').catch(() => { })
+    try {
+      const t = await saveTarget(code, pub.roundId, randomTarget())
+      await setPsyStatus(code, pub.roundId, 'spinning')
+      if (!mounted.current) return
+      setMyTarget(t)
+    } catch (e) {
+      spinningRef.current = false
+      setSpinning(false)
+      throw e
+    }
     const turns = 3 + Math.random() * 2
     const t0 = performance.now()
     const tick = (now: number) => {
@@ -182,7 +187,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
         spinningRef.current = false
         setSpinning(false)
         setPsyStep('peek')
-        setPsyStatus(code, 'peeking').catch(() => { })
+        void run(() => setPsyStatus(code, pub.roundId, 'peeking'))
       }
     }
     rafRef.current = requestAnimationFrame(tick)
@@ -203,55 +208,69 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
         setOpening(false)
         openingRef.current = false
         setPsyStep('clue')
-        setPsyStatus(code, 'thinking').catch(() => { })
+        void run(() => setPsyStatus(code, pub.roundId, 'thinking'))
       }
     }
     rafRef.current = requestAnimationFrame(tick)
   }
 
   function handleTap() {
-    if (!amPsychic || pub.phase !== 'setup') return
-    if (psyStep === 'spin') startSpin()
+    if (!amPsychic || pub.phase !== 'setup' || paused || busy || targetLoading) return
+    if (psyStep === 'spin') void run(startSpin)
     else if (psyStep === 'peek') openCover()
   }
 
   function sendClue() {
-    if (!clueDraft.trim()) return
-    submitClue(code, clueDraft.trim()).catch(() => { })
+    if (!clueDraft.trim() || paused) return
+    void run(() => submitClue(code, pub.roundId, clueDraft.trim()))
   }
 
   // ---- actions คนทาย ----
   function onNeedle(p: number) {
+    if (paused || busy) return
     setLocalNeedle(p)
+    needleValue.current = p
+    needleDirty.current = true
     const now = performance.now()
+    clearTimeout(needleTimer.current)
     if (now - lastGuessWrite.current > 60) {
       lastGuessWrite.current = now
-      submitGuess(code, p).catch(() => { })
-    }
+      writeNeedle(p)
+    } else needleTimer.current = setTimeout(() => writeNeedle(needleValue.current), 80)
+  }
+  function writeNeedle(p: number) {
+    needleQueue.current = needleQueue.current.then(() => mounted.current ? submitGuess(code, pub.roundId, p) : undefined).then(() => {
+      if (needleValue.current === p) needleDirty.current = false
+    }).catch(e => { if (mounted.current) report(e) })
   }
   function reveal() {
-    submitGuess(code, localNeedle)
-      .then(() => revealRound(code))
-      .catch(() => { })
+    if (paused) return
+    clearTimeout(needleTimer.current)
+    const needle = needleValue.current
+    void run(async () => {
+      await needleQueue.current
+      await submitGuess(code, pub.roundId, needle, true)
+      await finalizeScore(code, pub.roundId)
+    })
   }
 
   function nextRound() {
-    advanceRound(code, pub, players, false).catch(() => { })
+    if (!paused) void run(() => advanceRound(code, pub))
   }
 
   function playAgain() {
-    restartGame(code, pub, players).catch(() => { })
+    if (!paused) void run(() => restartGame(code, pub))
   }
 
   // ---- derived สำหรับวาด ----
   const guesserTargetReady = pub.phase === 'revealed' && pub.targetShown != null
   const displayTarget = amPsychic ? myTarget ?? 0.5 : pub.targetShown ?? 0.5
-  const displayNeedle = amPsychic ? pub.needle ?? 0.5 : localNeedle
+  const displayNeedle = amPsychic || pub.phase === 'revealed' ? pub.needle : localNeedle
   const showTarget = amPsychic
     ? (pub.phase === 'setup' && psyStep === 'clue') || pub.phase === 'guessing' || pub.phase === 'revealed'
     : guesserTargetReady
   const showNeedle = pub.phase === 'guessing' || pub.phase === 'revealed'
-  const interactive = !amPsychic && pub.phase === 'guessing'
+  const interactive = !amPsychic && pub.phase === 'guessing' && !paused && !busy
   const tapHint = amPsychic && pub.phase === 'setup' && !spinning && !opening && (psyStep === 'spin' || psyStep === 'peek')
 
   const clueVisible =
@@ -297,6 +316,17 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
 
   const burst =
     pub.phase === 'revealed' && pub.roundScore != null ? scoreCopy(pub.roundScore as Score) : null
+  const feedback = <>
+    {!bothOnline && <div className="connection-notice" role="status">รอเพื่อนเชื่อมต่อกลับเข้าห้อง… เกมและคะแนนยังอยู่</div>}
+    {error && <div className="home-error" role="alert">{error} <button className="btn how-btn" disabled={busy || !connected} onClick={() => {
+      if (targetLoading) setTargetAttempt(n => n + 1)
+      else if (pub.phase === 'revealed' && pub.roundScore == null) void run(() => finalizeScore(code, pub.roundId))
+      else if (pub.phase === 'guessing' && !amPsychic) void run(() => submitGuess(code, pub.roundId, needleValue.current))
+      else retry()
+    }}>ลองใหม่</button></div>}
+    {busy && <div role="status">กำลังบันทึก…</div>}
+    {targetLoading && amPsychic && <div role="status">กำลังโหลดเป้าหมาย…</div>}
+  </>
 
   // ---- หน้าจบเกม (ผลลัพธ์) ----
   if (pub.phase === 'ended') {
@@ -308,6 +338,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
     return (
       <>
         <Logo />
+        {feedback}
         <div className="results">
           <div className="results-crown" aria-hidden>{tie ? '🤝' : '👑'}</div>
           <div className="results-title">
@@ -333,13 +364,13 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
 
           <div className="controls">
             {isHost ? (
-              <button type="button" className="btn primary" onClick={playAgain}>
+              <button type="button" className="btn primary" disabled={busy || paused} onClick={playAgain}>
                 🔄 เล่นอีกครั้ง
               </button>
             ) : (
               <div className="lobby-wait">⏳ รอโฮสต์เริ่มเกมใหม่…</div>
             )}
-            <button type="button" className="btn how-btn" onClick={onLeave}>
+            <button type="button" className="btn how-btn" disabled={leaving || busy} onClick={onLeave}>
               ← ออกจากห้อง
             </button>
           </div>
@@ -351,6 +382,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
   return (
     <>
       <Logo />
+      {feedback}
 
       <div className={`board${shake ? ' shake' : ''}`}>
         <header className="statusrow">
@@ -399,6 +431,7 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
             draft={clueDraft}
             onDraft={setClueDraft}
             onSubmit={sendClue}
+            disabled={busy || paused || targetLoading}
           />
         )}
 
@@ -426,16 +459,17 @@ export default function OnlineGame({ room, uid, code, confettiRef, onLeave }: On
 
         <div className="controls">
           {pub.phase === 'guessing' && !amPsychic && (
-            <button type="button" className="btn primary" onClick={reveal}>
+            <button type="button" className="btn primary" disabled={busy || paused} onClick={reveal}>
               🎉 เฉลย!
             </button>
           )}
-          {pub.phase === 'revealed' && (
-            <button type="button" className="btn primary" onClick={nextRound}>
+          {pub.phase === 'revealed' && isHost && (
+            <button type="button" className="btn primary" disabled={busy || paused || pub.roundScore == null} onClick={nextRound}>
               {isLastRound ? '🏁 ดูผลลัพธ์' : '🎲 รอบต่อไป'}
             </button>
           )}
-          <button type="button" className="btn how-btn" onClick={onLeave}>
+          {pub.phase === 'revealed' && !isHost && <div role="status">รอโฮสต์เริ่มรอบต่อไป…</div>}
+          <button type="button" className="btn how-btn" disabled={leaving || busy} onClick={onLeave}>
             ← ออกจากห้อง
           </button>
         </div>

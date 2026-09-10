@@ -1,80 +1,99 @@
-<div align="center">
-  
-# 🌊 Wavelength Web Boardgame
+# WaveLengthBoardGame
 
-**โปรเจคเว็บแอปพลิเคชันสำหรับเล่นบอร์ดเกม Wavelength กับเพื่อนๆ แบบออนไลน์ (Real-time)** <br>
-มาประชันความรู้ใจกันว่า คุณจะเดาใจเพื่อนถูกหรือไม่จากคำใบ้เพียงคำเดียว!
+เว็บเกม Wavelength ภาษาไทยแบบออนไลน์ 2 คนแข่งกัน ใช้ React 18, TypeScript, Vite และ Firebase Anonymous Auth + Realtime Database ไม่มี Cloud Functions
 
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)
-![Firebase](https://img.shields.io/badge/firebase-ffca28?style=for-the-badge&logo=firebase&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+## การเล่น
 
-</div>
+1. ตั้งชื่อและเลือกอวตาร สร้างห้องรหัส 4 ตัว หรือกรอกรหัสเพื่อเข้าห้อง
+2. เลือกเล่น 4/6/8/10 รอบ โฮสต์เริ่มเมื่อผู้เล่นทั้งสองเชื่อมต่อแล้ว รอบแรกโฮสต์เป็นคนใบ้
+3. คนใบ้แตะวงล้อเพื่อสุ่มเป้าหมาย แตะอีกครั้งเพื่อเปิดดู แล้วส่งคำใบ้
+4. คนทายลากเข็มแล้วกดเฉลย ได้ 4/3/2/0 คะแนนตามระยะห่างจากเป้าหมาย
+5. หลังคะแนนบันทึก โฮสต์กดรอบต่อไปเพื่อสลับบทบาท เมื่อครบจำนวนรอบแสดงผู้ชนะหรือเสมอ และโฮสต์เริ่มเล่นใหม่ได้
 
-<br>
+มีหัวข้อภาษาไทย 23 คู่ใน `src/data/cards.ts` และธีม responsive ที่วาดวงล้อด้วย SVG
 
-## ✨ จุดเด่นของโปรเจค (Features)
-- 🎮 **Real-time Multiplayer:** ซิงค์ข้อมูลผู้เล่นแบบเรียลไทม์ผ่าน Firebase Realtime Database
-- 🎨 **Beautiful 3D UI:** อินเทอร์เฟซสไตล์การ์ตูน สีสันสดใส พร้อมเอฟเฟกต์ 3D Token ที่ให้ความรู้สึกเหมือนจับอุปกรณ์จริง
-- 🦋 **Custom Avatars:** เลือกร่างอวตารของคุณก่อนเข้าเกม มีให้เลือกทั้ง Emoji และรูปภาพ (เช่น น้องผีเสื้อสุดคิวท์)
-- 📱 **Responsive Design:** รองรับการเล่นทั้งบนมือถือ (Mobile) และหน้าจอคอมพิวเตอร์ (Desktop)
-- 🎲 **Card Concepts:** การ์ดคำถาม/คำใบ้ภาษาไทยที่หลากหลายกว่า 30+ ชุด (และอัปเดตเพิ่มได้ตลอด)
+## รันในเครื่องกับ Firebase จริง
 
-<br>
+ใช้ Node.js 22 ขึ้นไป ติดตั้ง dependencies ด้วย `npm ci` แล้วคัดลอก `.env.example` เป็น `.env` และเติมค่าจาก Firebase project ของคุณ เปิด Anonymous Authentication และตั้ง Realtime Database Rules ตามหัวข้อ deployment ด้านล่าง
 
-## 🎯 วิธีการเล่นเบื้องต้น (How to Play)
-1. **สร้างห้อง / เข้าร่วมห้อง:** ผู้เล่นคนแรกสร้างห้องและส่ง "รหัสห้อง" (Room Code) ให้เพื่อนๆ เข้ามาจอย
-2. **คนใบ้ (Psychic):** ระบบจะสุ่ม 1 คนเป็น "คนใบ้" 
-   - คนใบ้จะเห็นเป้าหมาย (Target) บนหน้าปัด
-   - คนใบ้จะได้รับการ์ดหัวข้อ (เช่น **"ร้อน"** ฝั่งซ้าย และ **"เย็น"** ฝั่งขวา)
-   - คนใบ้จะต้องพิมพ์ "คำใบ้" 1 คำ/ประโยค เพื่อให้เพื่อนๆ ทายว่าเป้าหมายอยู่ตรงไหนระหว่างร้อนและเย็น
-3. **คนทาย (Guessers):** เพื่อนในทีมจะเห็นแค่หน้าปัดว่างเปล่าและคำใบ้ จากนั้นต้องช่วยกันหมุนเข็มไปที่ตำแหน่งที่คิดว่าถูกต้องที่สุด
-4. **เฉลย (Reveal):** ระบบจะเปิดเผยตำแหน่งเป้าหมาย พร้อมคำนวณคะแนนตามความแม่นยำ!
-
-<br>
-
-## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
-- **Frontend:** React.js + TypeScript
-- **Bundler:** Vite (เร็ว แรง ทะลุจอ)
-- **Styling:** Vanilla CSS (ไม่พึ่ง Framework เน้นความ Custom ระดับ Pixel-perfect และ Animation สุดสมูท)
-- **Backend / State:** Firebase Realtime Database
-
-<br>
-
-## 🚀 วิธีการรันโปรเจคในเครื่อง (Local Setup)
-
-หากคุณต้องการนำโค้ดไปรันเพื่อพัฒนาต่อ สามารถทำได้ตามขั้นตอนด้านล่างนี้เลยครับ:
-
-### 1. ติดตั้ง Dependencies
-```bash
-npm install
-# หรือ yarn install
-```
-
-### 2. ตั้งค่า Firebase
-สร้างไฟล์ `.env` ที่โฟลเดอร์หลัก (Root) ของโปรเจค และใส่ค่า Firebase Config ของคุณลงไป:
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-VITE_FIREBASE_DATABASE_URL=your_database_url
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-```
-
-### 3. รัน Development Server
-```bash
+```sh
 npm run dev
-# หรือ yarn dev
+npm run typecheck
+npm run build
 ```
-เปิดเบราว์เซอร์ไปที่ `http://localhost:5173` เพื่อดูผลลัพธ์ได้เลย!
 
-<br>
+`npm run build` สร้าง `dist/` สำหรับ static hosting มี `netlify.toml` และ SPA redirect เตรียมไว้ ไม่มีการ deploy อัตโนมัติจากคำสั่ง build
 
----
+## ทดสอบโดยไม่ใช้ข้อมูลจริง
 
-<div align="center">
-  <i>สร้างสรรค์และพัฒนาเพื่อความสนุกในวงเพื่อน 🧩</i>
-</div>
+ติดตั้ง Java 21 ขึ้นไปสำหรับ Database Emulator และ Node.js 22 ขึ้นไปสำหรับ Firebase CLI การเริ่มครั้งแรกต้องใช้อินเทอร์เน็ตเพื่อดาวน์โหลด Emulator
+
+```sh
+npm test
+npm run test:rules
+```
+
+`npm test` ตรวจการคิดคะแนน การสลับรอบ การเล่นใหม่ และสมาชิกห้อง ส่วน `npm run test:rules` สร้าง Rules แล้วเปิด Database Emulator ชั่วคราวเพื่อตรวจคำสั่งที่อนุญาต/ปฏิเสธ รวมถึง transaction พร้อมกัน โดยใช้ project จำลอง `demo-wavelength`
+
+สำหรับทดสอบผ่านเบราว์เซอร์ เปิด terminal แรก:
+
+```sh
+npm run emulators
+```
+
+เปิด terminal ที่สอง (PowerShell):
+
+```powershell
+$env:VITE_USE_EMULATORS='true'
+npm run dev -- --host 127.0.0.1
+```
+
+เปิด `http://127.0.0.1:5173` ด้วย browser profile แยกกันหรือโหมดไม่ระบุตัวตนเพื่อเล่นสองคน ไม่ใช้เพียงสองแท็บใน profile เดียวกัน เพราะ Firebase Auth ใช้ผู้เล่นคนเดียวกันใน profile นั้น
+
+Emulator mode ใช้ config จำลองทั้งหมดแทนค่าจริงใน `.env` และทำงานเฉพาะ dev build พอร์ต Auth คือ 9099 และ Database คือ 9000 หากมี Emulator เปิดอยู่แล้ว ให้รันทดสอบ Rules ด้วย `npx vitest run tests/rules.test.ts` แทนการเปิดซ้ำ
+
+## โครงสร้างและกติกาข้อมูล v2
+
+```text
+roomsV2/{code}/
+  state/
+    pub/                  เฟส รอบ roundId บทบาท คำใบ้ เข็ม ผลเฉลย
+    players/host/         uid ชื่อ อวตาร คะแนน slot
+    players/guest/
+  secret/{roundId}         เป้าหมายคงที่ต่อรอบ
+  presence/{uid}/{connectionId}
+```
+
+- `src/lib/game.ts`: กติกาที่ไม่ผูกกับ Firebase เช่นเข้าห้อง เปลี่ยนรอบ คิดคะแนนและเล่นใหม่
+- `src/lib/rooms.ts`: transaction, subscription, secret และ presence
+- `src/hooks/useRoom.ts`: โหลดห้อง/ข้อผิดพลาด/การเชื่อมต่อ
+- `src/components/OnlineGame.tsx`: ปฏิสัมพันธ์ในรอบนั้น ถูกสร้างใหม่เมื่อ roundId เปลี่ยน
+- `scripts/build-rules.mjs`: แหล่งแก้ไข Rules ที่สร้าง `firebase/database.rules.json` พร้อมใช้งาน
+
+การเปลี่ยนสมาชิก สถานะรอบ ผลเฉลย และคะแนนใช้ transaction ที่ `state` เดียวกัน Rules จำกัดแต่ละการเปลี่ยนแปลงตามสมาชิกและบทบาท ตรวจค่าต่าง ๆ และห้ามแก้ฟิลด์อื่นแฝงมา
+
+ผู้ล็อกอินที่รู้รหัสห้องอ่าน shared state ได้เพื่อเข้าห้องด้วย transaction แต่ไม่สามารถ list ห้องทั้งหมด อ่าน parent ของห้อง หรืออ่านเป้าหมายลับก่อนเฉลยได้ เป้าหมายเขียนได้ครั้งเดียวโดยคนใบ้ เมื่อคนทายล็อกคำตอบแล้ว สมาชิกทั้งสองอ่านเป้าหมายและ finalize คะแนนได้ Rules ตรวจคะแนนกับเป้าหมายที่บันทึกไว้ และบันทึกผลพร้อมคะแนนสะสมเพียงครั้งเดียว
+
+โมเดลนี้ยังเชื่อใจคนใบ้ในการสุ่มเป้าหมายและให้คำใบ้ตามปกติ ไม่ใช่ระบบแข่งขันที่สุ่มและตัดสินทุกอย่างบน server รหัส 4 ตัวเป็นรหัสเข้าห้องสำหรับเล่นกับเพื่อน ไม่ใช่รหัสผ่านสำหรับข้อมูลส่วนตัว
+
+อ้างอิงพฤติกรรม transaction และการกำหนดสิทธิ์จาก [Firebase Database API](https://firebase.google.com/docs/reference/js/database) และ [Security Rules conditions](https://firebase.google.com/docs/database/security/rules-conditions)
+
+## รีเฟรช การหลุด และการออกจากห้อง
+
+- รหัสห้องเก็บใน `sessionStorage` ของแต่ละแท็บ รีเฟรชแล้วกลับห้องเดิมได้ ถ้า storage ถูกปิด ยังเข้าห้องใหม่ด้วยรหัสเดิมได้
+- เป้าหมายเดิมกู้จาก secret และเข็มกู้จาก shared state แต่คำใบ้ที่ยังไม่ได้ส่งไม่ได้บันทึก
+- แต่ละการเชื่อมต่อมี presence แยกกัน แท็บหนึ่งปิดไม่ลบสถานะอีกแท็บ ใช้ `onDisconnect` และลงทะเบียนใหม่เมื่อ reconnect การตรวจว่าหลุดอาจล่าช้าตามการตรวจ connection ของ Firebase
+- หลุดชั่วคราวเก็บที่นั่งและคะแนนไว้ UI รอให้ทั้งสองคนกลับมาก่อนเล่นต่อ ผลของรอบที่ล็อกคำตอบแล้วสามารถบันทึกโดยสมาชิกที่ยังเชื่อมต่ออยู่ได้
+- แขกออกจาก lobby จะคืนที่นั่ง โฮสต์ออกจาก lobby หรือผู้เล่นคนใดกดออกระหว่างเกมจะปิดห้องนั้น ไม่มีการแทนผู้เล่นกลางเกม
+- ห้องเก่าและ secret ยังอยู่ในฐานข้อมูล ไม่มี scheduled cleanup ในโปรเจค ผู้ดูแลสามารถลบห้องที่เลิกใช้แล้วจาก Firebase Console
+
+## นำเวอร์ชันนี้ขึ้นระบบ
+
+**ต้องใช้ Rules v2 และ frontend v2 คู่กัน** รอให้เกมเก่าจบและแจ้งให้ผู้เล่นโหลดเว็บใหม่ก่อน rollout เพราะ Rules ใหม่นี้ปฏิเสธ path `rooms/*` เดิม ไม่มีการแปลงห้องที่กำลังเล่นอัตโนมัติ
+
+1. รัน `npm run rules:build`, `npm test`, `npm run test:rules`, `npm run build`
+2. ตรวจ project ปลายทางและ environment variables ให้ถูกต้อง
+3. Deploy `firebase/database.rules.json` ผ่าน Firebase Console หรือ `firebase deploy --only database --project YOUR_PROJECT_ID`
+4. Deploy `dist/` บน static hosting แล้วตรวจการสร้างห้อง/เข้าห้อง/เล่นครบเกมสอง browser profiles
+
+เมื่อแก้ `game.ts`, scoring หรือชุดการ์ด ต้องตรวจ Rules และรัน tests อีกครั้ง โดยเฉพาะการเพิ่ม ID การ์ดต้องสร้าง Rules ใหม่ก่อนใช้งานจริง

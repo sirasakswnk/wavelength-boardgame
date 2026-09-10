@@ -26,5 +26,9 @@ npm-debug.log*
 !.vscode/extensions.json
 *.tsbuildinfo
 
+# local emulator state and browser QA captures
+.firebase/
+artifacts/
+
 # Custom IDE skills
 .claude/

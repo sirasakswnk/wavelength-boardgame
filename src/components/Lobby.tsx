@@ -6,11 +6,12 @@ import AvatarIcon from './AvatarIcon'
 interface LobbyProps {
   room: RoomSnapshot
   uid: string
+  busy: boolean
   onStart: () => void
   onLeave: () => void
 }
 
-export default function Lobby({ room, uid, onStart, onLeave }: LobbyProps) {
+export default function Lobby({ room, uid, busy, onStart, onLeave }: LobbyProps) {
   const [copied, setCopied] = useState(false)
   const isHost = room.pub.hostUid === uid
   const full = room.players.length >= 2
@@ -47,6 +48,7 @@ export default function Lobby({ room, uid, onStart, onLeave }: LobbyProps) {
                 <span className="seat-name">
                   {p ? p.name : 'รอเพื่อน…'}
                   {p && p.uid === uid ? ' (คุณ)' : ''}
+                  {p && !room.online[p.uid] ? ' · รอเชื่อมต่อ' : ''}
                 </span>
               </div>
             )
@@ -55,7 +57,7 @@ export default function Lobby({ room, uid, onStart, onLeave }: LobbyProps) {
 
         {full ? (
           isHost ? (
-            <button type="button" className="btn primary home-start" onClick={onStart}>
+            <button type="button" className="btn primary home-start" disabled={busy} onClick={onStart}>
               ▶ เริ่มเกม
             </button>
           ) : (

@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "rules:build": "node scripts/build-rules.mjs",
+    "test": "vitest run tests/game.test.ts",
+    "test:rules": "npm run rules:build && firebase emulators:exec --project demo-wavelength --only database \"vitest run tests/rules.test.ts\"",
+    "emulators": "firebase emulators:start --project demo-wavelength --only auth,database"
   },
   "dependencies": {
     "firebase": "^12.17.1",
@@ -15,10 +19,13 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "firebase-tools": "^15.30.0",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^3.2.7"
   }
 }

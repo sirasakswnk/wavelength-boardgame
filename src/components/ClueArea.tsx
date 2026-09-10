@@ -8,9 +8,10 @@ interface ClueAreaProps {
   draft: string
   onDraft: (s: string) => void
   onSubmit: () => void
+  disabled?: boolean
 }
 
-export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, onSubmit }: ClueAreaProps) {
+export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, onSubmit, disabled }: ClueAreaProps) {
   if (mode === 'input') {
     return (
       <div className="cluerow">
@@ -34,7 +35,7 @@ export default function ClueArea({ mode, psychicAvatar, clue, draft, onDraft, on
               autoFocus
             />
           </div>
-          <button type="submit" className="btn teal" disabled={!draft.trim()}>
+          <button type="submit" className="btn teal" disabled={disabled || !draft.trim()}>
             ส่งคำใบ้ ➜
           </button>
         </form>

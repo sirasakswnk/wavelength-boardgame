@@ -1,255 +1,139 @@
-// Data layer ของห้องออนไลน์บน Realtime Database
-// UI จะเรียกฟังก์ชันเหล่านี้ (สร้าง/เข้าห้อง/เล่น) และ subscribe สถานะห้อง
-import {
-  ref,
-  set,
-  get,
-  update,
-  onValue,
-  onDisconnect,
-  type DataSnapshot,
-  type Unsubscribe,
-} from 'firebase/database'
+import { ref, get, set, onValue, onDisconnect, push, runTransaction, type Unsubscribe } from 'firebase/database'
 import { getFirebase } from './firebase'
-import { scoreFor } from './scoring'
 import { CARDS, randomCard } from '../data/cards'
+import { advanceState, finalizeState, joinState, leaveState, makeRoom, requireGame, requireRound,
+  type RoomState, type RoomSnapshot, type RoomPublic, type PsyStatus } from './game'
+export { DEFAULT_ROUNDS, ROUND_OPTIONS } from './game'
+export type { RoomPlayer, RoomPublic, RoomSnapshot, RoomPhase, PsyStatus } from './game'
 
-export type RoomPhase = 'lobby' | 'setup' | 'guessing' | 'revealed' | 'ended'
-
-/** ตัวเลือกจำนวนรอบตอนสร้างห้อง (เลขคู่ = แต่ละคนได้ทายเท่ากัน) */
-export const ROUND_OPTIONS = [4, 6, 8, 10] as const
-export const DEFAULT_ROUNDS = 6
-
-/** สิ่งที่คนใบ้กำลังทำอยู่ระหว่างเฟส setup (ให้คนทายเห็นสถานะ) */
-export type PsyStatus = 'spinning' | 'peeking' | 'thinking'
-
-export interface RoomPlayer {
-  uid: string
-  name: string
-  avatar: string
-  score: number
-  slot: number // 0 = โฮสต์, 1 = คนเข้าร่วม
-}
-
-export interface RoomPublic {
-  phase: RoomPhase
-  round: number
-  totalRounds: number // จำนวนรอบทั้งหมดของเกม (ตั้งตอนสร้างห้อง)
-  psychicUid: string | null
-  cardId: string | null
-  clue: string
-  needle: number // ตำแหน่งเข็มที่ทาย 0..1
-  revealed: boolean
-  roundScore: number | null
-  targetShown: number | null // เป้าหมายที่เปิดเผยหลังเฉลย
-  psyStatus: PsyStatus | null // คนใบ้กำลังทำอะไร (ให้คนทายเห็น)
-  hostUid: string
-}
-
-export interface RoomSnapshot {
-  code: string
-  players: RoomPlayer[]
-  pub: RoomPublic
-}
-
-// ---- helpers ----
-const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' // ตัด 0/O/1/I/L ที่สับสน
-function genCode(len = 4): string {
-  let s = ''
-  for (let i = 0; i < len; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
-  return s
-}
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const db = () => getFirebase().db
-const pubRef = (code: string) => ref(db(), `rooms/${code}/public`)
-const secretRef = (code: string) => ref(db(), `rooms/${code}/secret/targetPosition`)
-const playerRef = (code: string, uid: string) => ref(db(), `rooms/${code}/players/${uid}`)
-const presenceRef = (code: string, uid: string) => ref(db(), `rooms/${code}/presence/${uid}`)
-
-function makePublic(hostUid: string, totalRounds: number): RoomPublic {
-  return {
-    phase: 'lobby',
-    round: 0,
-    totalRounds,
-    psychicUid: null,
-    cardId: null,
-    clue: '',
-    needle: 0.5,
-    revealed: false,
-    roundScore: null,
-    targetShown: null,
-    psyStatus: null,
-    hostUid,
-  }
+const roomPath = (code: string) => `roomsV2/${code}`
+const stateRef = (code: string) => ref(db(), `${roomPath(code)}/state`)
+const secretRef = (code: string, roundId: string) => ref(db(), `${roomPath(code)}/secret/${roundId}`)
+const currentUid = () => {
+  const uid = getFirebase().auth.currentUser?.uid
+  requireGame(uid, 'กรุณารอเชื่อมต่อบัญชีผู้เล่น')
+  return uid
 }
-
-// ---- lobby ----
-export async function createRoom(
-  uid: string,
-  name: string,
-  avatar: string,
-  totalRounds: number = DEFAULT_ROUNDS,
-): Promise<string> {
-  let code = genCode()
-  for (let i = 0; i < 5; i++) {
-    const snap = await get(ref(db(), `rooms/${code}/public`))
-    if (!snap.exists()) break
-    code = genCode()
-  }
-  // เขียนแยกเป็นราย path (public + players/uid) เพราะ rules ให้สิทธิ์ที่ระดับลูก ไม่ใช่ที่ rooms/$code
-  await update(ref(db(), `rooms/${code}`), {
-    public: makePublic(uid, totalRounds),
-    [`players/${uid}`]: { uid, name, avatar, score: 0, slot: 0 },
-  })
-  return code
+function genCode() {
+  return Array.from(crypto.getRandomValues(new Uint32Array(4)), n => CODE_CHARS[n % CODE_CHARS.length]).join('')
 }
+function nextId() { return push(ref(db(), 'unused')).key! }
 
-export async function joinRoom(code: string, uid: string, name: string, avatar: string): Promise<void> {
-  const pub = await get(pubRef(code))
-  if (!pub.exists()) throw new Error('ไม่พบห้องนี้ — เช็กรหัสอีกครั้ง')
-  const playersSnap = await get(ref(db(), `rooms/${code}/players`))
-  const players = (playersSnap.val() ?? {}) as Record<string, RoomPlayer>
-  if (!players[uid] && Object.keys(players).length >= 2) throw new Error('ห้องเต็มแล้ว (2 คน)')
-  await set(playerRef(code, uid), {
-    uid,
-    name,
-    avatar,
-    score: players[uid]?.score ?? 0,
-    slot: players[uid]?.slot ?? 1,
-  })
+/** Shared game changes use one transaction boundary. Never mix set/update here. */
+async function change(code: string, transform: (state: RoomState) => RoomState): Promise<void> {
+  const initial = await get(stateRef(code))
+  requireGame(initial.exists(), 'ไม่พบห้องนี้')
+  // A one-off get does not guarantee a retained local cache. Seed the first attempt;
+  // the server's compare-and-swap still retries against its latest state on conflict.
+  const result = await runTransaction(stateRef(code), raw => transform((raw ?? initial.val()) as RoomState), { applyLocally: false })
+  requireGame(result.committed, 'ห้องเปลี่ยนแปลง กรุณาลองอีกครั้ง')
 }
-
-export function subscribeRoom(code: string, cb: (room: RoomSnapshot | null) => void): Unsubscribe {
-  // อ่านแยก public + players (ห้ามอ่าน rooms/$code ทั้งก้อน — จะติด rules ของ secret)
-  let pub: RoomPublic | null = null
-  let havePub = false
-  let players: RoomPlayer[] = []
-
-  const emit = () => {
-    if (havePub && pub) cb({ code, players, pub })
-    else cb(null)
+export async function createRoom(uid: string, name: string, avatar: string, rounds: number): Promise<string> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = genCode()
+    const state = makeRoom(uid, name, avatar, rounds, nextId())
+    const result = await runTransaction(stateRef(code), old => old == null ? state : undefined, { applyLocally: false })
+    if (result.committed) return code
   }
-
-  const unsubPub = onValue(pubRef(code), (snap: DataSnapshot) => {
-    havePub = snap.exists()
-    pub = snap.val() as RoomPublic | null
+  throw new Error('สร้างรหัสห้องไม่สำเร็จ กรุณาลองอีกครั้ง')
+}
+export async function joinRoom(code: string, uid: string, name: string, avatar: string) {
+  requireGame(/^[A-Z0-9]{4}$/.test(code), 'รหัสห้องต้องมี 4 ตัว')
+  await change(code, state => joinState(state, uid, name, avatar))
+}
+export function subscribeRoom(code: string, cb: (room: RoomSnapshot | null) => void, onError: (error: Error) => void): Unsubscribe {
+  let state: RoomState | null = null
+  let online: Record<string, boolean> = {}
+  let presenceUnsub: Unsubscribe | undefined
+  const emit = () => cb(state ? { code, pub: state.pub,
+    players: [state.players.host, state.players.guest].filter(p => !!p), online } : null)
+  const unsub = onValue(stateRef(code), snap => {
+    state = snap.val() as RoomState | null
+    const isMember = state && [state.players.host, state.players.guest].some(p => p?.uid === currentUid())
+    if (isMember && !presenceUnsub) {
+      presenceUnsub = onValue(ref(db(), `${roomPath(code)}/presence`), presence => {
+        online = Object.fromEntries(Object.entries(presence.val() ?? {}).map(([uid, connections]) => [uid, !!connections && Object.keys(connections).length > 0]))
+        emit()
+      }, onError)
+    } else if (!isMember && presenceUnsub) {
+      presenceUnsub()
+      presenceUnsub = undefined
+    }
     emit()
-  })
-  const unsubPlayers = onValue(ref(db(), `rooms/${code}/players`), (snap: DataSnapshot) => {
-    const val = (snap.val() ?? {}) as Record<string, RoomPlayer>
-    players = Object.values(val)
-      .map((p) => ({ uid: p.uid, name: p.name, avatar: p.avatar, score: p.score ?? 0, slot: p.slot ?? 0 }))
-      .sort((a, b) => a.slot - b.slot)
-    emit()
-  })
-
-  return () => {
-    unsubPub()
-    unsubPlayers()
-  }
+  }, onError)
+  return () => { unsub(); presenceUnsub?.() }
 }
-
-/** ตั้ง presence + ล้างอัตโนมัติเมื่อเน็ตหลุด; คืนฟังก์ชันออกจาก presence */
-export function setupPresence(code: string, uid: string): () => void {
-  const pRef = presenceRef(code, uid)
-  set(pRef, true)
-  onDisconnect(pRef).remove()
-  return () => {
-    set(pRef, null)
-  }
+/** Register disconnect cleanup before publishing online; each tab has its own entry. */
+export function setupPresence(code: string, uid: string, onError: (error: Error) => void): () => void {
+  let active = true
+  let cleanupConnection: (() => Promise<void>) | undefined
+  const unsub = onValue(ref(db(), '.info/connected'), snapshot => {
+    if (!snapshot.val()) return
+    const connection = push(ref(db(), `${roomPath(code)}/presence/${uid}`))
+    const disconnect = onDisconnect(connection)
+    cleanupConnection = async () => { await set(connection, null); await disconnect.cancel() }
+    void (async () => {
+      await disconnect.remove()
+      if (!active) { await disconnect.cancel(); return }
+      await set(connection, true)
+      if (!active) { await set(connection, null); await disconnect.cancel() }
+    })().catch(onError)
+  }, onError)
+  return () => { active = false; unsub(); void cleanupConnection?.().catch(onError) }
 }
-
-export async function leaveRoom(code: string, uid: string): Promise<void> {
-  await Promise.all([set(playerRef(code, uid), null), set(presenceRef(code, uid), null)])
+export async function leaveRoom(code: string, uid: string) {
+  await change(code, state => leaveState(state, uid))
 }
-
-// ---- รอบเกม ----
-/** เริ่มรอบใหม่: สลับคนใบ้ (รอบแรกให้ slot 0 เป็นคนใบ้), สุ่มการ์ด, ล้างของเก่า */
-export async function advanceRound(
-  code: string,
-  current: RoomPublic,
-  players: RoomPlayer[],
-  firstRound: boolean,
-): Promise<void> {
-  // เล่นครบจำนวนรอบแล้ว → จบเกม (โชว์ผลลัพธ์) แทนการขึ้นรอบใหม่
-  const total = current.totalRounds ?? DEFAULT_ROUNDS
-  if (!firstRound && (current.round ?? 0) >= total) {
-    await update(pubRef(code), { phase: 'ended' })
-    return
-  }
-  const prevCard = CARDS.find((c) => c.id === current.cardId)
-  const card = randomCard(prevCard)
-  let psychicUid: string
-  if (firstRound || !current.psychicUid) {
-    psychicUid = players[0]?.uid ?? current.hostUid
-  } else {
-    psychicUid = players.find((p) => p.uid !== current.psychicUid)?.uid ?? current.psychicUid
-  }
-  await set(secretRef(code), null)
-  await update(pubRef(code), {
-    phase: 'setup',
-    round: (current.round ?? 0) + 1,
-    psychicUid,
-    cardId: card.id,
-    clue: '',
-    needle: 0.5,
-    revealed: false,
-    roundScore: null,
-    targetShown: null,
-    psyStatus: null,
+export async function advanceRound(code: string, current: RoomPublic) {
+  const uid = currentUid()
+  const card = randomCard(CARDS.find(c => c.id === current.cardId))
+  const id = nextId()
+  await change(code, state => advanceState(state, uid, current.roundId, id, card.id))
+}
+export async function restartGame(code: string, current: RoomPublic) {
+  const uid = currentUid()
+  const id = nextId()
+  const card = randomCard()
+  await change(code, state => advanceState(state, uid, current.roundId, id, card.id, true))
+}
+export function setPsyStatus(code: string, roundId: string, status: PsyStatus) {
+  const uid = currentUid()
+  return change(code, state => {
+    requireRound(state, uid, roundId)
+    requireGame(state.pub.phase === 'setup' && state.pub.psychicUid === uid, 'ตอนนี้เปลี่ยนสถานะคนใบ้ไม่ได้')
+    return { ...state, pub: { ...state.pub, psyStatus: status } }
   })
 }
-
-/** เล่นใหม่: ล้างคะแนนทุกคนเป็น 0 แล้วเริ่มรอบ 1 ใหม่ (โฮสต์กด) */
-export async function restartGame(
-  code: string,
-  current: RoomPublic,
-  players: RoomPlayer[],
-): Promise<void> {
-  await Promise.all(
-    players.map((p) => update(playerRef(code, p.uid), { score: 0 })),
-  )
-  await advanceRound(code, { ...current, round: 0, psychicUid: null }, players, true)
+export async function saveTarget(code: string, roundId: string, target: number): Promise<number> {
+  const result = await runTransaction(secretRef(code, roundId), old => old ?? target, { applyLocally: false })
+  return result.snapshot.val() as number
 }
-
-/** คนใบ้อัปเดตสถานะว่ากำลังทำอะไร (ให้คนทายเห็น) */
-export function setPsyStatus(code: string, status: PsyStatus | null): Promise<void> {
-  return update(pubRef(code), { psyStatus: status })
+export async function getMyTarget(code: string, roundId: string): Promise<number | null> {
+  return (await get(secretRef(code, roundId))).val() as number | null
 }
-
-/** คนใบ้บันทึกตำแหน่งเป้าหมายที่สุ่มได้ลง secret (คนทายอ่านไม่ได้) */
-export function saveTarget(code: string, target: number): Promise<void> {
-  return set(secretRef(code), target)
+export function submitClue(code: string, roundId: string, clue: string) {
+  const uid = currentUid()
+  return change(code, state => {
+    requireRound(state, uid, roundId)
+    requireGame(state.pub.phase === 'setup' && state.pub.psychicUid === uid, 'ตอนนี้ส่งคำใบ้ไม่ได้')
+    requireGame(clue.trim().length > 0 && clue.trim().length <= 100, 'กรุณาใส่คำใบ้ 1–100 ตัวอักษร')
+    return { ...state, pub: { ...state.pub, clue: clue.trim(), phase: 'guessing', psyStatus: null } }
+  })
 }
-
-/** คนใบ้อ่านเป้าหมายของตัวเอง (rules ปล่อยเฉพาะคนใบ้) */
-export async function getMyTarget(code: string): Promise<number | null> {
-  const snap = await get(secretRef(code))
-  return snap.exists() ? (snap.val() as number) : null
+export function submitGuess(code: string, roundId: string, needle: number, reveal = false) {
+  const uid = currentUid()
+  return change(code, state => {
+    requireRound(state, uid, roundId)
+    requireGame(state.pub.phase === 'guessing' && state.pub.psychicUid !== uid, 'คำตอบถูกล็อกแล้ว หรือยังไม่ถึงตาคุณ')
+    requireGame(Number.isFinite(needle) && needle >= 0 && needle <= 1, 'ตำแหน่งเข็มไม่ถูกต้อง')
+    return { ...state, pub: { ...state.pub, needle, ...(reveal ? { revealed: true, phase: 'revealed' as const } : {}) } }
+  })
 }
-
-/** คนใบ้ส่งคำใบ้ → เข้าเฟสให้คนทายหมุน */
-export function submitClue(code: string, clue: string): Promise<void> {
-  return update(pubRef(code), { clue, phase: 'guessing', psyStatus: null })
-}
-
-/** คนทายลากเข็ม (ผู้เรียกควร throttle) */
-export function submitGuess(code: string, needle: number): Promise<void> {
-  return update(pubRef(code), { needle })
-}
-
-/** คนทายกดเฉลย → พลิกเฟส (คะแนนให้เครื่องคนใบ้คิดต่อ เพราะมันรู้เป้าหมาย) */
-export function revealRound(code: string): Promise<void> {
-  return update(pubRef(code), { revealed: true, phase: 'revealed' })
-}
-
-/** เครื่องคนใบ้คิดคะแนนตอนเห็นเฟส revealed (มันมีเป้าหมายจริง) */
-export async function finalizeScore(
-  code: string,
-  target: number,
-  needle: number,
-  guesser: RoomPlayer,
-): Promise<void> {
-  const sc = scoreFor(needle, target)
-  await update(pubRef(code), { targetShown: target, roundScore: sc })
-  await update(playerRef(code, guesser.uid), { score: (guesser.score ?? 0) + sc })
+export async function finalizeScore(code: string, roundId: string): Promise<void> {
+  const uid = currentUid()
+  const target = await getMyTarget(code, roundId)
+  requireGame(target != null, 'ไม่พบเป้าหมายของรอบนี้')
+  await change(code, state => finalizeState(state, uid, roundId, target))
 }

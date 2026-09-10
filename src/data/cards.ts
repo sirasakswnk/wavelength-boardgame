@@ -1,6 +1,6 @@
 import type { Card } from '../types'
 
-// ชุดการ์ดหัวข้อภาษาไทย (ชุดตั้งต้น — ค่อยขยายเป็น 50–100 คู่ในขั้นถัดไป)
+// ชุดการ์ดหัวข้อภาษาไทย ใช้ ID ไม่ซ้ำกันในการซิงค์ห้อง
 // สีซ้าย/ขวา ใช้ไล่โทนของแต่ละหัวข้อ (คนละฝั่งคนละอารมณ์)
 export const CARDS: Card[] = [
   { id: 'hot-cold', left: 'เย็น', right: 'ร้อน', colorLeft: '#3E8EF7', colorRight: '#F4572E' },
@@ -18,7 +18,6 @@ export const CARDS: Card[] = [
   { id: 'mild-spicy', left: 'เผ็ดน้อย', right: 'เผ็ดจัด', colorLeft: '#22C55E', colorRight: '#F4572E' },
   { id: 'snack-meal', left: 'ของกินเล่น', right: 'ของกินจริงจัง', colorLeft: '#FFAE2E', colorRight: '#8B5CF6' },
   { id: 'weak-strong-hero', left: 'ฮีโร่อ่อนแอ', right: 'ฮีโร่ทรงพลัง', colorLeft: '#64748B', colorRight: '#F4572E' },
-  { id: 'safe-danger', left: 'ปลอดภัย', right: 'อันตราย', colorLeft: '#00C48C', colorRight: '#6D28D9' },
   { id: 'useless-skill', left: 'ทักษะไร้ค่า', right: 'ทักษะมีค่า', colorLeft: '#94A3B8', colorRight: '#00C48C' },
   { id: 'unwanted-job', left: 'งานไม่มีใครอยากทำ', right: 'งานใครๆก็อยากทำ', colorLeft: '#78716C', colorRight: '#FFAE2E' },
   { id: 'tellable-secret', left: 'ความลับที่บอกได้', right: 'ความลับที่ห้ามบอก', colorLeft: '#3E8EF7', colorRight: '#DB2777' },

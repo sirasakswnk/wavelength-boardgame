@@ -4,7 +4,7 @@ import Dial from './Dial'
 import ConceptCard from './ConceptCard'
 import { CARDS } from '../data/cards'
 import { randomTarget } from '../lib/scoring'
-import { ROUND_OPTIONS, DEFAULT_ROUNDS } from '../lib/rooms'
+import { ROUND_OPTIONS, DEFAULT_ROUNDS } from '../lib/game'
 import AvatarIcon from './AvatarIcon'
 
 const AVATARS = ['🦊', '🐸', '🐱', '🐰', '🐼', '🦁', 'Pinkbutterfly.png', 'Purplebutterfly.png']
